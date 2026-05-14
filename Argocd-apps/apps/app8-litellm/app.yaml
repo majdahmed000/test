@@ -1,0 +1,47 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+
+metadata:
+  name: litellm
+  namespace: argocd
+
+spec:
+  project: default
+
+  sources:
+    - repoURL: oci://ghcr.io/berriai/litellm-helm
+      chart: litellm-helm
+      targetRevision: 1.82.3
+
+      helm:
+        releaseName: litellm
+        valueFiles:
+          - $values/Argocd-apps/apps/app8-litellm/values2.yaml
+
+    - repoURL: https://github.com/Tahira-Nawaz/llm-k8s-project.git
+      targetRevision: main
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: litellm
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+    syncOptions:
+      - CreateNamespace=true
+  
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      jsonPointers:
+        - /data
+
+
+
+
+
+  

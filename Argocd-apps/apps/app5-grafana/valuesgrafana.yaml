@@ -1,0 +1,23 @@
+adminUser: admin
+adminPassword: admin489
+
+service:
+  type: ClusterIP
+
+persistence:
+  enabled: true
+  type: pvc
+  storageClassName: ebs-gp3
+  accessModes:
+    - ReadWriteOnce
+  size: 5Gi
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-server.monitoring.svc.cluster.local
+        access: proxy
+        isDefault: true

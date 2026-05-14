@@ -1,0 +1,39 @@
+#!/bin/bash
+
+NAMESPACE="monitoring"
+DOMAIN="prometheus.llm-k8s.awssolutionsprovider.com"
+SERVICE_NAME="prometheus-server"
+SERVICE_PORT=80
+PARENT_NAME="traefik"
+PARENT_NAMESPACE="traefik"
+ROUTE_NAME="prometheus-route"
+
+# =========================
+# Apply HTTPRoute
+# =========================
+
+cat <<EOF | kubectl apply -f -
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ${ROUTE_NAME}
+  namespace: ${NAMESPACE}
+spec:
+  parentRefs:
+    - name: ${PARENT_NAME}
+      namespace: ${PARENT_NAMESPACE}
+
+  hostnames:
+    - ${DOMAIN}
+
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: ${SERVICE_NAME}
+          port: ${SERVICE_PORT}
+EOF
+
+echo "Prometheus HTTPRoute applied successfully"

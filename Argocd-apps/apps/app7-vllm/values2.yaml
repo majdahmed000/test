@@ -1,0 +1,92 @@
+servingEngineSpec:
+  runtimeClassName: "nvidia"
+  imagePullPolicy: "IfNotPresent"
+
+  nodeSelector:
+    gpu: "true"
+
+  tolerations:
+    - key: "nvidia.com/gpu"
+      operator: "Exists"
+      effect: "NoSchedule"
+
+  startupProbe:
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    failureThreshold: 90
+
+  livenessProbe:
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    failureThreshold: 3
+
+  modelSpec:
+    - name: "qwen3-5-27b-fp8"
+      repository: "vllm/vllm-openai"
+      tag: "latest"
+
+      modelURL: "/data/model"
+
+      replicaCount: 1
+
+      requestGPU: 1
+      requestCPU: 6
+      requestMemory: "32Gi"
+
+      limitCPU: "8"
+      limitMemory: "40Gi"
+
+      pvcStorage: "80Gi"
+      storageClass: "ebs-gp3"
+
+      pvcAccessMode:
+        - ReadWriteOnce
+
+      initContainer:
+        name: "s3-model-loader"
+        image: "amazon/aws-cli:latest"
+
+        command:
+          - "sh"
+          - "-c"
+
+        args:
+          - >
+            if [ -f /data/model/config.json ];
+            then
+              echo 'Model exists, skipping download';
+            else
+              aws s3 sync s3://llm-k8s-artifacts-eb36c713/models/Qwen3.5-27B-FP8/ /data/model/;
+            fi
+
+        env:
+          - name: AWS_DEFAULT_REGION
+            value: "us-east-2"
+
+        mountPvcStorage: true
+
+      vllmConfig:
+        enablePrefixCaching: true
+        extraArgs:
+          - "--dtype=auto"
+          - "--gpu-memory-utilization=0.90"
+          - "--max-model-len=8192"
+          - "--trust-remote-code"
+          - "--served-model-name=qwen3-5-27b-fp8"
+          - "--enable-auto-tool-choice"
+          - "--tool-call-parser=hermes"
+
+routerSpec:
+  replicaCount: 1
+
+  nodeSelector:
+    gpu: "false"
+
+  routingLogic: "prefixaware"
+  engineScrapeInterval: 15
+  servicePort: 80
+
+  startupProbe:
+    initialDelaySeconds: 15
+    periodSeconds: 5
+    failureThreshold: 30

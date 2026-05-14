@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vllm
+  namespace: argocd
+
+spec:
+  project: default
+
+  sources:
+    # Helm chart source
+    - repoURL: https://vllm-project.github.io/production-stack
+      chart: vllm-stack
+      targetRevision: 0.1.10
+      helm:
+        releaseName: vllm
+        valueFiles:
+          - $values/Argocd-apps/apps/app7-vllm/values2.yaml
+
+    # Git values repo
+    - repoURL: https://github.com/Tahira-Nawaz/llm-k8s-project.git
+      targetRevision: main
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: vllm
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+    syncOptions:
+      - CreateNamespace=true
