@@ -16,7 +16,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: ./kubernetes/infrastructure/terraform/rke2-aws-cluster
+        working-directory: kubernetes/infrastructure/terraform/rke2-aws-cluster
 
     steps:
       # -------------------------------------------------
