@@ -3,7 +3,12 @@ name: Run Kubernetes Setup Scripts on EC2 test
 on:
   push:
     branches:
-      - none
+      - main  # Change 'none' to 'main' (or your default branch)
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: # This adds the manual "Run workflow" button back
+
 
 env:
   EC2_HOST: 13.58.244.173
