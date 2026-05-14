@@ -3,8 +3,11 @@ name: Terraform CI/CD Pipeline
 on:
   push:
     branches:
-      - none
+      - main  # Change 'none' to 'main' (or your default branch)
   pull_request:
+    branches:
+      - main
+  workflow_dispatch: # This adds the manual "Run workflow" button back
 
 jobs:
   terraform:
