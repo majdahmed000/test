@@ -1,0 +1,150 @@
+name: Run Kubernetes Setup Scripts on EC2
+
+on:
+  push:
+    branches:
+      - none
+
+env:
+  EC2_HOST: 13.58.244.173
+  EC2_USER: ${{ secrets.EC2_USER }}
+
+jobs:
+  aws-lb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          echo "${{ secrets.EC2_KEY }}" > key.pem
+          chmod 600 key.pem
+
+      - name: Run AWS LB script
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST "bash -s" < scripts/1_aws_lb.sh
+
+
+  ebs-csi:
+    needs: aws-lb
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          echo "${{ secrets.EC2_KEY }}" > key.pem
+          chmod 600 key.pem
+
+      - name: Run EBS CSI script
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST "bash -s" < scripts/2_ebscsi.sh
+
+
+  cluster-manager:
+    needs: ebs-csi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          echo "${{ secrets.EC2_KEY }}" > key.pem
+          chmod 600 key.pem
+
+      - name: Run Cluster Manager script
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST "bash -s" < scripts/3_c_manager.sh
+
+
+  traefik:
+    needs: cluster-manager
+    runs-on: ubuntu-latest
+
+    outputs:
+      lb_dns: ${{ steps.getlb.outputs.lb_dns }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          echo "${{ secrets.EC2_KEY }}" > key.pem
+          chmod 600 key.pem
+
+      - name: Run Traefik script
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST "bash -s" < scripts/4_traefik_ingress.sh
+
+      - name: Get Traefik LB DNS
+        id: getlb
+        run: |
+          LB_DNS=$(ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST \
+            "kubectl get svc -n kube-system traefik \
+            -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'")
+
+          echo "lb_dns=$LB_DNS" >> $GITHUB_OUTPUT
+
+
+  dns-terraform:
+    needs: traefik
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      - name: Run Terraform DNS
+        run: |
+          cd kubernetes/infrastructure/3_Dns_main
+
+          export TF_VAR_ingress_lb_hostname="${{ needs.traefik.outputs.lb_dns }}"
+
+          terraform init -reconfigure
+          terraform apply -auto-approve
+
+  traefik-gateway:
+    needs:  dns-terraform
+    runs-on: ubuntu-latest
+    environment:
+      name: traefik-lb-approval
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          echo "${{ secrets.EC2_KEY }}" > key.pem
+          chmod 600 key.pem
+
+      - name: Run Traefik Gateway script
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST "bash -s" < scripts/5_traefikGateway.sh
+
+
+  argocd:
+    needs: traefik-gateway
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          echo "${{ secrets.EC2_KEY }}" > key.pem
+          chmod 600 key.pem
+
+      - name: Run ArgoCD script
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST "bash -s" < scripts/6_argocd.sh
