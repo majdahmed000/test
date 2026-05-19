@@ -10,4 +10,4 @@ owner        = "ai-team"
 # =============================================================================
 domain_name_prefix = "*.test-majd-llm-k8s"
 zone_id            = "Z02745981J3FQC8Y0Z4P7"
-# ingress_lb_hostname     = "k8s-kubesyst-traefik-56bd0523c7-835be0324b75f26c.elb.us-east-2.amazonaws.com"
+ ingress_lb_hostname     = "k8s-kubesyst-traefik-21b3b60feb-59606f2ad182c5fa.elb.us-east-2.amazonaws.com"
