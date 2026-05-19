@@ -11,7 +11,7 @@ on:
 
 
 env:
-  EC2_HOST: 3.139.234.9
+  EC2_HOST: 3.144.250.231
   EC2_USER: ${{ secrets.EC2_USER }}
 
 jobs:
